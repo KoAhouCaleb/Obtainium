@@ -41,6 +41,13 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
+        // app.revanced:patcher-android:22.0.2-dev.1 is a pre-release snapshot,
+        // compiled by a newer/pre-release Kotlin compiler than this project's
+        // stable one - Kotlin refuses to load such classes by default as a
+        // safety check. This is the documented escape hatch for consuming a
+        // dev/pre-release dependency; see
+        // https://github.com/gradle/gradle/issues/21436 and KT-38070.
+        freeCompilerArgs += "-Xskip-prerelease-check"
     }
 
     defaultConfig {
