@@ -1,10 +1,13 @@
 package dev.imranr.obtainium.revanced
 
 import android.content.Context
-import app.revanced.library.ApkUtils
-import app.revanced.patcher.Patcher
-import app.revanced.patcher.PatcherConfig
+import app.revanced.library.ApkUtils.applyTo
+import app.revanced.patcher.patcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 data class PatchResult(
     val success: Boolean,
@@ -21,12 +24,11 @@ data class PatchResult(
  * applying any patches, used as the opt-in fallback when a configured patch fails
  * to apply to a new app version (see Phase 3 "patch failure fallback" decision).
  *
- * NOTE: this file has not been compiled against the pinned revanced-patcher /
- * revanced-library versions (no JVM/Android build toolchain was available while
- * writing it) - the Patcher/PatcherConfig constructor shape and ApkUtils.applyTo
- * signature are based on ReVanced Manager's CoroutineRuntime.kt at the time of
- * writing and should be double-checked against those exact dependency versions
- * before shipping.
+ * The patcher(...) call shape here is verified against revanced-manager's own
+ * Session.kt, which is the actual (and only) consumer of revanced-patcher's
+ * public API in that codebase - there is no Patcher/PatcherConfig class; it's a
+ * top-level `patcher(...)` function that returns a callable you invoke with an
+ * emit callback to get a PatchesResult.
  */
 class PatchEngine(
     private val context: Context,
@@ -78,23 +80,33 @@ class PatchEngine(
             }
 
             val workDir = context.cacheDir.resolve("revanced-work").apply { mkdirs() }
-            val unsignedApk = File(workDir, "${packageName}-unsigned.apk")
+            val frameworkDir = context.cacheDir.resolve("framework").apply { mkdirs() }
 
-            val patcherConfig = PatcherConfig(
-                apkFile = inputApk,
-                temporaryFilesPath = workDir,
-                aaptBinaryPath = aaptBinary.absolutePath,
-            )
-            Patcher(patcherConfig).use { patcher ->
-                patcher.apply {
-                    acceptPatches(selectedPatches.toList())
+            withContext(Dispatchers.Default) {
+                val runPatcher = patcher(
+                    apkFile = inputApk,
+                    temporaryFilesPath = workDir,
+                    frameworkFileDirectory = frameworkDir.absolutePath,
+                    aaptBinaryPath = aaptBinary,
+                ) { _, _ -> selectedPatches }
+
+                val result = runPatcher { patchResult ->
+                    patchResult.exception?.let { throw it }
                 }
-                val patcherResult = patcher.patch()
-                ApkUtils.applyTo(patcherResult, unsignedApk)
-            }
 
-            keystoreManager.sign(unsignedApk, outputApk, alias, password)
-            unsignedApk.delete()
+                val patchedTmp = File(workDir, "patched.apk")
+                withContext(Dispatchers.IO) {
+                    Files.copy(
+                        inputApk.toPath(),
+                        patchedTmp.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                    )
+                }
+                result.applyTo(patchedTmp)
+
+                keystoreManager.sign(patchedTmp, outputApk, alias, password)
+                patchedTmp.delete()
+            }
 
             PatchResult(success = true, outputPath = outputApkPath, error = null)
         } catch (e: Exception) {
