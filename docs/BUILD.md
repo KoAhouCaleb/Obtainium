@@ -294,6 +294,7 @@ third-party APKs (Settings → ReVanced patching in the app, or
 | --- | --- |
 | Gradle fails resolving `app.revanced:*` with a 401/403 | GitHub Packages credentials missing/wrong — see step 3.4. Only affects `--flavor normal`. |
 | Gradle fails resolving `com.github.topjohnwu.libsu:nio`/`:service` ("Could not find...", searched Google/Maven Central/GitHub Packages) | The JitPack repository isn't declared — see step 3.4. Should already be present in `android/build.gradle.kts`; if it's missing on your checkout, add `maven("https://jitpack.io")` to the `allprojects { repositories { ... } }` block. |
+| `mergeNormalReleaseNativeLibs` fails on `bcprov-jdk18on-*.jar` with `JetifyTransform`/`Unsupported class file major version ...` | Jetifier (legacy `android.support.*` → AndroidX rewriting) can't parse newer multi-release JARs and crashes on ones that don't even need rewriting. `android/gradle.properties` already sets `android.enableJetifier=false` for this reason; if you re-enabled it, turn it back off. |
 | `flutter.sdk not set in local.properties` | Create `android/local.properties` per step 3.2. |
 | Patch-config UI works but "apply patches" fails at runtime with an aapt2-related error | Expected until the native `libaapt2obtainium.so` binaries are added — see step 3.5. Not a build-config problem. |
 | `fdroid` flavor behaves like `normal` (e.g. checks for Obtainium's own updates) | You built without `-t lib/main_fdroid.dart` — `isFdroidBuild` is only set by that entry point. |
