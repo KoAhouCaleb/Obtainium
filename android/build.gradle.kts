@@ -2,6 +2,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // revanced-library pulls in com.github.topjohnwu.libsu:* (root-install
+        // support) transitively. Packages under the "com.github.<owner>" group
+        // only resolve via JitPack, which builds them from the tagged source of
+        // github.com/topjohnwu/libsu - they aren't on Maven Central or Google's
+        // Maven. Mirrors the same repo revanced-manager's settings.gradle.kts lists.
+        maven("https://jitpack.io")
         // ReVanced's patcher/library artifacts are only published to GitHub
         // Packages, which requires authentication even for public read access.
         // Set githubPackagesUsername/githubPackagesPassword (a GitHub PAT with
