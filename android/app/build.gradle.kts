@@ -118,6 +118,36 @@ android {
             versionNameSuffix = "-debug"
         }
     }
+
+    // revanced-patcher/revanced-library's dependency tree (Apache Tika,
+    // httpclient/httpcore, smali/baksmali, bouncycastle, etc.) ships several
+    // jars that duplicate the same META-INF/license/properties paths, which
+    // AGP's resource merging refuses to resolve on its own. Only relevant to
+    // the "normal" flavor's classpath, but harmless to apply unconditionally -
+    // excluding a path that doesn't exist in a given variant's merged
+    // resources is a no-op. Mirrors revanced-manager's own build.gradle.kts,
+    // which hits the exact same conflicts from the same dependencies.
+    packaging {
+        resources {
+            excludes += "/XPP3_*_VERSION"
+            excludes += "/font-awesome-license.txt"
+            excludes += "/smali.properties"
+            excludes += "/baksmali.properties"
+            excludes += "/properties/apktool.properties"
+            excludes += "/org/antlr/**"
+            excludes += "/org/mockito/**"
+            excludes += "/org/bouncycastle/pqc/**.properties"
+            excludes += "/org/bouncycastle/x509/**.properties"
+            excludes += "/META-INF/INDEX.LIST"
+            excludes += "/META-INF/**/*.txt"
+            excludes += "/META-INF/**/*.properties"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/*.version"
+            excludes += "/META-INF/*.kotlin_module"
+            excludes += "/kotlin-tooling-metadata.json"
+            excludes += "/DebugProbesKt.bin"
+        }
+    }
 }
 
 val abiCodes = mapOf("x86_64" to 1, "armeabi-v7a" to 2, "arm64-v8a" to 3)
