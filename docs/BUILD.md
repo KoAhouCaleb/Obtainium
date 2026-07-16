@@ -131,17 +131,44 @@ flavor).
 
 Building only the `fdroid` flavor (`--flavor fdroid`) never needs this.
 
-### 3.5 Known gap: aapt2 native libraries
+`revanced-library` also transitively pulls in `com.github.topjohnwu.libsu:*`
+(used for root-install support), whose `com.github.<owner>` coordinates only
+resolve via **JitPack** (`https://jitpack.io`, which builds straight from the
+tagged source of `github.com/topjohnwu/libsu` — this group is never on Maven
+Central or Google's Maven). No credentials needed for this one, just the
+repository URL, which `android/build.gradle.kts` already declares — if you see
+Gradle fail to resolve `com.github.topjohnwu.libsu:nio`/`:service` on some
+other checkout, that repo declaration is what's missing.
+
+### 3.5 aapt2 native libraries
 
 The patch engine (`normal` flavor) resolves a bundled `aapt2` binary at
 runtime from `android/app/src/normal/jniLibs/<abi>/libaapt2obtainium.so` (see
-`Aapt.kt`). **These prebuilt binaries are not currently checked into the
-repo** — actual patch *application* will fail at runtime until they're added,
-one per supported ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`, matching
-`abiCodes` in `android/app/build.gradle.kts`). This does not block compiling
-the app or using every other feature (keystore management, patch selection
-UI, general app tracking/updating) — only the actual "apply patches to this
-APK" step needs it.
+`Aapt.kt`). This is a *different* aapt2 than the one Flutter/AGP already use
+to compile resources on your machine during the build — this one has to run
+**on the Android device itself** at patch time, so it needs to be a copy of
+aapt2 cross-compiled for Android, which the SDK doesn't ship.
+
+ReVanced publishes exactly these prebuilt binaries — one per ABI, GitHub
+build-provenance attested — as release assets in a dedicated repo,
+[`ReVanced/aapt2`](https://github.com/ReVanced/aapt2) (this is what
+`revanced-manager` itself bundles). Download and place them under the
+filename `Aapt.kt` looks for:
+
+```bash
+cd android/app/src/normal/jniLibs
+for abi in arm64-v8a armeabi-v7a x86_64; do   # Obtainium doesn't ship an x86 split, so skip it
+  mkdir -p "$abi"
+  curl -L -o "$abi/libaapt2obtainium.so" \
+    "https://github.com/ReVanced/aapt2/releases/download/v1.0.0/aapt2-$abi"
+done
+```
+
+Check the [releases page](https://github.com/ReVanced/aapt2/releases) for the
+current tag if `v1.0.0` has been superseded. Without these files present,
+everything else works (keystore management, patch selection UI, general app
+tracking/updating) — only the actual "apply patches to this APK" step fails
+at runtime.
 
 ## 4. Everyday commands
 
@@ -266,6 +293,7 @@ third-party APKs (Settings → ReVanced patching in the app, or
 | Symptom | Likely cause / fix |
 | --- | --- |
 | Gradle fails resolving `app.revanced:*` with a 401/403 | GitHub Packages credentials missing/wrong — see step 3.4. Only affects `--flavor normal`. |
+| Gradle fails resolving `com.github.topjohnwu.libsu:nio`/`:service` ("Could not find...", searched Google/Maven Central/GitHub Packages) | The JitPack repository isn't declared — see step 3.4. Should already be present in `android/build.gradle.kts`; if it's missing on your checkout, add `maven("https://jitpack.io")` to the `allprojects { repositories { ... } }` block. |
 | `flutter.sdk not set in local.properties` | Create `android/local.properties` per step 3.2. |
 | Patch-config UI works but "apply patches" fails at runtime with an aapt2-related error | Expected until the native `libaapt2obtainium.so` binaries are added — see step 3.5. Not a build-config problem. |
 | `fdroid` flavor behaves like `normal` (e.g. checks for Obtainium's own updates) | You built without `-t lib/main_fdroid.dart` — `isFdroidBuild` is only set by that entry point. |
