@@ -84,6 +84,20 @@ android {
 
     buildTypes {
         getByName("release") {
+            // Disabled rather than fixed with -dontwarn/-keep rules: R8 flags
+            // several classes from revanced-patcher's dependency tree as
+            // missing (java.awt.*/javax.imageio.* from apktool's desktop-only
+            // 9-patch fallback, org.immutables.* codegen annotations from
+            // sigstore-java, reactor.blockhound.* from shaded Netty) - none of
+            // which are reachable at runtime on Android. But revanced-manager's
+            // own build.gradle.kts disables minification for this exact reason
+            // with the comment "Causes patching to not work properly, if
+            // enabled" - R8 shrinking/renaming can silently break
+            // revanced-patcher's reflection-based patch-class loading even with
+            // the missing-class warnings suppressed. Matching that choice
+            // rather than risking a subtler runtime failure.
+            isMinifyEnabled = false
+            isShrinkResources = false
             val releaseSigningConfig = signingConfigs.getByName("release")
             signingConfig = if (keystorePropertiesExists && releaseSigningConfig.storeFile != null) {
                 releaseSigningConfig
