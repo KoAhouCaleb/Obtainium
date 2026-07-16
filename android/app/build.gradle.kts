@@ -142,6 +142,11 @@ android {
             excludes += "/META-INF/**/*.txt"
             excludes += "/META-INF/**/*.properties"
             excludes += "/META-INF/DEPENDENCIES"
+            // OSGi manifests inside multi-release JARs' per-version directories
+            // (bouncycastle, jspecify, etc. all duplicate these) - Android has no
+            // use for OSGi metadata at all, so drop every version's copy at once
+            // rather than adding one exact path per newly-seen JDK version.
+            excludes += "/META-INF/versions/*/OSGI-INF/**"
             excludes += "/META-INF/*.version"
             excludes += "/META-INF/*.kotlin_module"
             excludes += "/kotlin-tooling-metadata.json"
